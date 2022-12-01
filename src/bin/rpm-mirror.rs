@@ -1,7 +1,8 @@
 use std::{fs::File, path::PathBuf, process::ExitCode};
 
 use clap::Parser;
-use xml::reader::{ParserConfig, XmlEvent};
+
+use delon_alert::*;
 
 #[derive(Debug, Parser)]
 struct CommandLineArguments {
@@ -11,9 +12,6 @@ struct CommandLineArguments {
 
 fn main() -> ExitCode {
     let cli_arguments = CommandLineArguments::parse();
-    let config = ParserConfig::new()
-        .trim_whitespace(true)
-        .cdata_to_characters(false);
 
     println!("{cli_arguments:#?}");
     print!("\n");
@@ -28,40 +26,16 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    let reader = config.create_reader(reader);
-
-    for event in reader {
-        match event {
-            Ok(item) => {
-                handle_xml_event(item);
-            }
-            Err(_) => {}
+    match yaserde::de::from_reader::<File, Repomd>(reader) {
+        Err(e) => {
+            println!("Failed to read input data");
+            println!("{e}");
+            return ExitCode::FAILURE;
         }
-    }
+        Ok(repomd) => {
+            println!("{repomd:#?}");
+        }
+    };
 
     return ExitCode::SUCCESS;
-}
-
-fn handle_xml_event(item: XmlEvent) {
-    match item {
-        XmlEvent::StartDocument { .. } => { /* We don't care about this */ }
-        XmlEvent::EndDocument => { /* We don't care about this */ }
-        XmlEvent::ProcessingInstruction { .. } => { /* We don't care about this */ }
-        XmlEvent::StartElement { name, .. } => {
-            println!("Starting to process: {}", name.local_name);
-        }
-        XmlEvent::EndElement { name } => {
-            println!("Done processing: {}", name.local_name);
-        }
-        XmlEvent::CData(string) => {
-            println!("Read {string}");
-        }
-        XmlEvent::Comment(_) => { /* We don't care about this */ }
-        XmlEvent::Characters(string) => {
-            println!("Read {string}");
-        }
-        XmlEvent::Whitespace(string) => {
-            println!("Read {string}");
-        }
-    }
 }
