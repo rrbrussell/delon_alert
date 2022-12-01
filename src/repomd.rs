@@ -1,5 +1,8 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
+use super::Checksum;
+use super::Location;
+
 #[derive(Debug, PartialEq, YaDeserialize, YaSerialize)]
 #[yaserde(rename = "repomd", namespace = "http://linux.duke.edu/metadata/repo")]
 pub struct Repomd {
@@ -34,20 +37,6 @@ pub struct RepomdXmlDataEntry {
     header_size: Option<u64>,
 }
 
-#[derive(Debug, Default, PartialEq, YaDeserialize, YaSerialize)]
-pub struct Checksum {
-    #[yaserde(attribute, rename = "type")]
-    algorithm: String,
-    #[yaserde(text)]
-    value: String,
-}
-
-#[derive(Debug, Default, PartialEq, YaDeserialize, YaSerialize)]
-pub struct Location {
-    #[yaserde(attribute)]
-    href: String,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -57,6 +46,7 @@ mod tests {
         let master_checksum = Checksum {
             algorithm: String::from("sha256"),
             value: String::from("947fa8d654d341e418467a40d33f7beb4474c612ca803cb36141d29b0d0101c1"),
+            pkgid: None,
         };
         let input_string = "<checksum type=\"sha256\">947fa8d654d341e418467a40d33f7beb4474c612ca803cb36141d29b0d0101c1</checksum>";
         let loaded_checksum: Checksum = yaserde::de::from_str(input_string).unwrap();
@@ -68,17 +58,17 @@ mod tests {
     fn test_repomd_xmldata_entry() {
         let master_entry = RepomdXmlDataEntry {
             kind: String::from("primary"),
-            checksum: Checksum { algorithm: String::from("sha256"), value: String::from("54bbae6e9d4cd4865a55f7558daef86574cddc5f2a4f8a0d9c74f946e1a45dd3") },
-            open_checksum: Some(Checksum { algorithm: String::from("sha256"), value: String::from("e5d3052bdaa654391c5c706d6250cea9284d3810ff3af9b359ae986cd571d3d4")}),
+            checksum: Checksum { algorithm: String::from("sha256"), value: String::from("54bbae6e9d4cd4865a55f7558daef86574cddc5f2a4f8a0d9c74f946e1a45dd3"), pkgid: None },
+            open_checksum: Some(Checksum { algorithm: String::from("sha256"), value: String::from("e5d3052bdaa654391c5c706d6250cea9284d3810ff3af9b359ae986cd571d3d4"), pkgid: None}),
             location: Location { href: String::from("repodata/54bbae6e9d4cd4865a55f7558daef86574cddc5f2a4f8a0d9c74f946e1a45dd3-primary.xml.gz"),},
             timestamp: 1668072518,
             size: 17845585,
             open_size: Some(162151977),
-            header_checksum: Some(Checksum { algorithm: String::from("sha256"), value: String::from("b8377a36221772919bf93f8ab4ffac46ce61d684ea7f07954455270fd291583c")}),
+            header_checksum: Some(Checksum { algorithm: String::from("sha256"), value: String::from("b8377a36221772919bf93f8ab4ffac46ce61d684ea7f07954455270fd291583c"), pkgid: None}),
             database_version: Some(10),
             header_size: Some(537811),
         };
-        let original_data = r##"<data type="primary">
+        let original_data = r##"<data xmlns="http://linux.duke.edu/metadata/repo" type="primary">
   <checksum type="sha256">54bbae6e9d4cd4865a55f7558daef86574cddc5f2a4f8a0d9c74f946e1a45dd3</checksum>
   <open-checksum type="sha256">e5d3052bdaa654391c5c706d6250cea9284d3810ff3af9b359ae986cd571d3d4</open-checksum>
   <header-checksum type="sha256">b8377a36221772919bf93f8ab4ffac46ce61d684ea7f07954455270fd291583c</header-checksum>
@@ -104,7 +94,7 @@ mod tests {
     #[test]
     fn test_repomd_single_entry() {
         let test_str = r##"<?xml version="1.0" encoding="UTF-8"?>
-<repomd>
+<repomd xmlns="http://linux.duke.edu/metadata/repo">
   <revision>1668072600</revision>
   <data type="primary">
     <checksum type="sha256">54bbae6e9d4cd4865a55f7558daef86574cddc5f2a4f8a0d9c74f946e1a45dd3</checksum>
@@ -120,8 +110,8 @@ mod tests {
             revision: 1668072600,
             data: vec![RepomdXmlDataEntry {
                 kind: String::from("primary"),
-                checksum: Checksum { algorithm: String::from("sha256"), value: String::from("54bbae6e9d4cd4865a55f7558daef86574cddc5f2a4f8a0d9c74f946e1a45dd3") },
-                open_checksum: Some(Checksum { algorithm: String::from("sha256"), value: String::from("e5d3052bdaa654391c5c706d6250cea9284d3810ff3af9b359ae986cd571d3d4")}),
+                checksum: Checksum { algorithm: String::from("sha256"), value: String::from("54bbae6e9d4cd4865a55f7558daef86574cddc5f2a4f8a0d9c74f946e1a45dd3"), pkgid: None},
+                open_checksum: Some(Checksum { algorithm: String::from("sha256"), value: String::from("e5d3052bdaa654391c5c706d6250cea9284d3810ff3af9b359ae986cd571d3d4"), pkgid: None}),
                 location: Location { href: String::from("repodata/54bbae6e9d4cd4865a55f7558daef86574cddc5f2a4f8a0d9c74f946e1a45dd3-primary.xml.gz") },
                 timestamp: 1668072518,
                 size: 17845585,
@@ -132,14 +122,7 @@ mod tests {
             }],
         };
 
-        // Display pretty printed XML
-        let yaserde_cfg = yaserde::ser::Config {
-            perform_indent: true,
-            write_document_declaration: true,
-            ..Default::default()
-        };
-
-        let serialized = yaserde::ser::to_string_with_config(&master_entry, &yaserde_cfg).unwrap();
-        assert_ne!(serialized, test_str);
+        let serialized = yaserde::de::from_str::<Repomd>(test_str).unwrap();
+        assert_eq!(serialized, master_entry);
     }
 }
