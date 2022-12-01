@@ -3,6 +3,8 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 pub mod repomd;
 pub use repomd::{Repomd, RepomdXmlDataEntry};
 
+pub mod primary;
+
 #[derive(Debug, Default, PartialEq, YaDeserialize, YaSerialize)]
 pub struct Checksum {
     #[yaserde(attribute, rename = "type")]

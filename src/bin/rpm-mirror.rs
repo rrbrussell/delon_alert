@@ -26,7 +26,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    match yaserde::de::from_reader::<File, Repomd>(reader) {
+    match yaserde::de::from_reader::<File, Repomd>(reader.try_clone().unwrap()) {
         Err(e) => {
             println!("Failed to read input data");
             println!("{e}");
@@ -34,6 +34,7 @@ fn main() -> ExitCode {
         }
         Ok(repomd) => {
             println!("{repomd:#?}");
+            println!("\n{reader:#?}");
         }
     };
 
